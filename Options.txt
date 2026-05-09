@@ -1,6 +1,6 @@
 Number of maps horizontally(x) then vertically(y)
-- nx : 1
-- ny : 1
+- nx : 3
+- ny : 2
 
 Crop (if set to false, image will be stretched to fit the total map size)
 - crop : 1
@@ -22,4 +22,7 @@ Best flat color match for each pixel(just for testing, bad results)
 - noDither : 0
 
 Maximum recursion depth, larger values should slightly increase the accuracy of the result but takes much longer to compute
-- maxCache : 10000
+- maxCache : 1000
+
+Also generate 1x1 map sections
+- genIndividual : 1

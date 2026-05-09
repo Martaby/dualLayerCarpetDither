@@ -127,10 +127,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)/Vendor/Include/zlibLibzip;$(SolutionDir)/Vendor/Include/libnbtplusplus/include;$(SolutionDir)/Vendor/Include;$(SolutionDir)/Header</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)/Vendor/Libraries</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);bz2.lib;z.lib;zip.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -141,8 +144,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>
-      </AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/Vendor/Include/zlibLibzip;$(SolutionDir)/Vendor/Include/libnbtplusplus/include;$(SolutionDir)/Vendor/Include;$(SolutionDir)/Header</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -150,20 +152,70 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);bz2.lib;z.lib;zip.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)/Vendor/Libraries</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="lodepng.cpp" />
-    <ClCompile Include="main.cpp">
-    </ClCompile>
-    <ClCompile Include="Utils.cpp" />
+    <ClInclude Include="Header\lodepng.h" />
+    <ClInclude Include="Header\nbtBuilder.h" />
+    <ClInclude Include="Header\Utils.h" />
+    <ClInclude Include="Include\cpp_nbt\nbt.hpp" />
+    <ClInclude Include="Include\gzip\compress.hpp" />
+    <ClInclude Include="Include\gzip\config.hpp" />
+    <ClInclude Include="Include\gzip\decompress.hpp" />
+    <ClInclude Include="Include\gzip\utils.hpp" />
+    <ClInclude Include="Include\gzip\version.hpp" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\crtp_tag.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\endian_str.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\io\izlibstream.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\io\ozlibstream.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\io\stream_reader.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\io\stream_writer.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\io\zlib_streambuf.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\make_unique.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\nbt_export.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\nbt_tags.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\nbt_visitor.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\primitive_detail.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tagfwd.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag_array.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag_compound.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag_list.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag_primitive.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\tag_string.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\text\json_formatter.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\value.h" />
+    <ClInclude Include="Vendor\Include\libnbtplusplus\include\value_initializer.h" />
+    <ClInclude Include="Vendor\Include\zlibLibzip\bzlib.h" />
+    <ClInclude Include="Vendor\Include\zlibLibzip\zconf.h" />
+    <ClInclude Include="Vendor\Include\zlibLibzip\zip.h" />
+    <ClInclude Include="Vendor\Include\zlibLibzip\zipconf.h" />
+    <ClInclude Include="Vendor\Include\zlibLibzip\zlib.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="lodepng.h" />
-    <ClInclude Include="Utils.h" />
+    <ClCompile Include="Source\libnbtplusplus\endian_str.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\io\izlibstream.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\io\ozlibstream.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\io\stream_reader.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\io\stream_writer.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\tag.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\tag_compound.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\tag_list.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\tag_string.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\text\json_formatter.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\value.cpp" />
+    <ClCompile Include="Source\libnbtplusplus\value_initializer.cpp" />
+    <ClCompile Include="Source\lodepng.cpp" />
+    <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\nbtBuilder.cpp" />
+    <ClCompile Include="Source\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Library Include="Vendor\Libraries\bz2.lib" />
+    <Library Include="Vendor\Libraries\z.lib" />
+    <Library Include="Vendor\Libraries\zip.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
