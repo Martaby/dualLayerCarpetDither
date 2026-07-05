@@ -157,6 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Header\assets.h" />
     <ClInclude Include="Header\lodepng.h" />
     <ClInclude Include="Header\nbtBuilder.h" />
     <ClInclude Include="Header\Utils.h" />
@@ -195,6 +196,7 @@
     <ClInclude Include="Vendor\Include\zlibLibzip\zlib.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\assets.cpp" />
     <ClCompile Include="Source\libnbtplusplus\endian_str.cpp" />
     <ClCompile Include="Source\libnbtplusplus\io\izlibstream.cpp" />
     <ClCompile Include="Source\libnbtplusplus\io\ozlibstream.cpp" />

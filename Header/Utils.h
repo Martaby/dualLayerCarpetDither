@@ -6,7 +6,6 @@
 #include <bitset>
 #include <format>
 #include <string>
-#include <Windows.h>
 #include <direct.h>
 #include <fstream>
 #include <cmath>
@@ -17,6 +16,7 @@
 
 #include "lodepng.h"
 #include "nbtBuilder.h"
+#include "assets.h"
 
 
 
@@ -230,13 +230,14 @@ public:
 
 class Block {
 public:
-	Block(std::string _id, rgb _light, rgb _flat, rgb _dark);
+	Block(std::string _id, rgb _light, rgb _flat, rgb _dark, int _type);
 	void display();
 
 	std::string id;
 	rgb light;
 	rgb flat;
 	rgb dark;
+	int type = 1;	// 1 for regular block, 0 for background block
 };
 
 class Palette {
@@ -252,8 +253,11 @@ public:
 		free(bottom_flat);
 		free(top_light);
 		free(bottom_dark);
+		free(background_flat);
+		free(background_dark);
 	}
 
+	void initPalette();
 	void flatten(float* pixelArray, rgb* colors);
 	rgb cap(rgb* color);
 	void errDiff(float* err, rgb* diff, rgb* c1, rgb* c2);
@@ -263,14 +267,22 @@ public:
 
 	std::vector<Block> usedBlocks;
 
+	int nbCol;
 	rgb* bottom_flat;
 	rgb* top_light;
 	rgb* bottom_dark;
-	int nbCol;
+
+	bool lavaBg = false;
+	float* background_flat;
+	float* background_dark;
+
+	
 
 	float* bfb;	// Below from below		[r0,g0,b0,r1,g1,b1,...]
 	float* tfb;	// Top from below
 	float* bft;	// Below from top
+
+	
 };
 
 
@@ -372,18 +384,22 @@ public:
 		delete initImg;
 		delete preprocessedImg;
 		delete ditheredImg;
+		delete legendImg;
+
 		free(finalBlockMap);
 		free(finalHeightMap);
 	}
 
 	void findFileName(std::string path);
 	void decodePng(const char* path);
-	void encodePng(const char* path);
+	void encodePng(Img* img, const char* path);
+	void readOptionFile();
 	void preprocess();	// Img pre-processing to fit the map standard
 	std::unique_ptr<Result> memoCollumnDitherDiffuse(int pos, int end, int lastHeight, int lastBlock, rgb lastErr);
 	bool dither();			// Dither img and store result in ditheredImg
 	void generateImage(std::string fileName);
 	void generateNBT(std::string fileName);
+	void generateLegend(std::string fileName);
 
 	Palette* palette;
 
@@ -396,6 +412,7 @@ public:
 	Img* initImg;			// Initial image
 	Img* preprocessedImg;	// Resized image
 	Img* ditheredImg;		// Final dithered image
+	Img* legendImg;			// Output image 
 	std::string fileName;
 
 	//Preprocessing parameters
@@ -411,6 +428,7 @@ public:
 
 	int maxDepth = 950;
 	int maxCache = 1000;
+	int minheight = 0;
 	int maxheight = 2;
 	bool noDither = false;
 

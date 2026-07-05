@@ -1,5 +1,5 @@
 Number of maps horizontally(x) then vertically(y)
-- nx : 3
+- nx : 1
 - ny : 2
 
 Crop (if set to false, image will be stretched to fit the total map size)
@@ -26,3 +26,6 @@ Maximum recursion depth, larger values should slightly increase the accuracy of 
 
 Also generate 1x1 map sections
 - genIndividual : 1
+
+Use lava/redstone background
+- lavaBg : 1

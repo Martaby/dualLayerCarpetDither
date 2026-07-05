@@ -123,6 +123,9 @@
     <ClInclude Include="Vendor\Include\libnbtplusplus\include\nbt_export.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
+    <ClInclude Include="Header\assets.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\lodepng.cpp">
@@ -171,6 +174,9 @@
       <Filter>Fichiers sources</Filter>
     </ClCompile>
     <ClCompile Include="Source\libnbtplusplus\text\json_formatter.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\assets.cpp">
       <Filter>Fichiers sources</Filter>
     </ClCompile>
   </ItemGroup>

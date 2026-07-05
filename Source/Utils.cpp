@@ -130,17 +130,19 @@ void Img::average(Img* initImg, float factor, int xOffset, int yOffset) {
 					pixels[4 * (y * width + x) + col] = pixelSum / nbPixels;
 				}
 			}
+			pixels[4 * (y * width + x) + 3] = 255;	// Transparency
 		}
 	}
 }
 
 
 
-Block::Block(std::string _id, rgb _light, rgb _flat, rgb _dark) {
+Block::Block(std::string _id, rgb _light, rgb _flat, rgb _dark, int _type) {
 	id = _id;
 	light = _light;
 	flat = _flat;
 	dark = _dark;
+	type = _type;
 }
 
 void Block::display() {
@@ -162,15 +164,27 @@ void Palette::flatten(float* pixelArray, rgb* colors) {
 Palette::Palette() {}					// PAS BON DOIT INITIALISER LES VARIABLES, MAIS JAMAIS APPELE
 
 Palette::Palette(std::vector<Block> _blocks) {
+	blocks = _blocks;
+}
 
-	nbCol = _blocks.size();
+void Palette::initPalette() {
+	nbCol = blocks.size();
+
+	if (lavaBg) {
+		blocks.push_back(Block("minecraft:lava", rgb(255, 0, 0), rgb(220, 0, 0), rgb(180, 0, 0), 0));
+		background_flat = (float*)malloc(3 * sizeof(float));
+		background_flat[0] = 220; background_flat[1] = 0; background_flat[2] = 0;
+		background_dark = (float*)malloc(3 * sizeof(float));
+		background_dark[0] = 180; background_flat[1] = 0; background_flat[2] = 0;
+	}
+	
 	bottom_flat = (rgb*)malloc(nbCol * sizeof(rgb));
 	top_light = (rgb*)malloc(nbCol * sizeof(rgb));
 	bottom_dark = (rgb*)malloc(nbCol * sizeof(rgb));
 	for (int i = 0; i < nbCol; i++) {
-		bottom_flat[i] = _blocks[i].flat;
-		top_light[i] = _blocks[i].light;
-		bottom_dark[i] = _blocks[i].dark;
+		bottom_flat[i] = blocks[i].flat;
+		top_light[i] = blocks[i].light;
+		bottom_dark[i] = blocks[i].dark;
 	}
 
 
@@ -180,8 +194,6 @@ Palette::Palette(std::vector<Block> _blocks) {
 	flatten(bfb, bottom_flat);
 	flatten(tfb, top_light);
 	flatten(bft, bottom_dark);
-
-	blocks = _blocks;
 }
 
 
@@ -219,16 +231,37 @@ void Palette::findBest(int* bestCol, float* bestErr, rgb* bestDiff, rgb* color, 
 	*bestErr = 9999999;
 	*bestCol = 0;
 	float* pal;
+	rgb col_i;
+
+	if (shade == 3) {// background flat, only one color to test
+		errDiff(&err, &diff, &capped, &blocks.back().flat);
+		if (err < *bestErr) {
+			*bestErr = err;
+			*bestCol = blocks.size() - 1;
+			*bestDiff = diff;
+		}
+		return;
+	}
+	else if (shade == 4) {// background dark, only one color to test
+		errDiff(&err, &diff, &capped, &blocks.back().dark);
+		if (err < *bestErr) {
+			*bestErr = err;
+			*bestCol = blocks.size() - 1;
+			*bestDiff = diff;
+		}
+		return;
+	}
+
 	if (shade == 0) {
 		pal = tfb;
 	}
 	else if (shade == 1) {
 		pal = bfb;
 	}
-	else {
+	else{
 		pal = bft;
 	}
-	rgb col_i;
+	
 	for (int i = 0; i < nbCol * 3; i+=3) {
 		col_i._rgb[0] = pal[i];
 		col_i._rgb[1] = pal[i + 1];
@@ -243,14 +276,14 @@ void Palette::findBest(int* bestCol, float* bestErr, rgb* bestDiff, rgb* color, 
 }
 
 
-void readOptionFile(Process* process) {
+void Process::readOptionFile() {
 	std::ifstream file("Options.txt");
 
 	if (!file) {
 		std::cerr << "Unable to open Option.txt, writing it with base options." << std::endl;
 		std::ofstream createOptions("Options.txt");
 		// Writing options to file
-		createOptions << "Number of maps horizontally(x) then vertically(y)\n- nx : 3\n- ny : 2\n\nCrop (if set to false, image will be stretched to fit the total map size)\n- crop : 1\n\nImage offset % along x, then y (With no zoom, only one axis will be affected by the offset, value between 0 and 100)\n- xOffset : 50\n- yOffset : 50\n\nZoom on the image, between 1 (no zoom) and ..............\n- zoom = 1\n\nLimited staircase height\n- maxheight : 2\n\nRainbow support blocks(for a very specific use case, not required)\n- rainbowSupport : 1\n\nBest flat color match for each pixel(just for testing, bad results)\n- noDither : 0\n\nMaximum recursion depth, larger values should slightly increase the accuracy of the result but takes much longer to compute\n- maxCache : 1000\n\nAlso generate 1x1 map sections\n- genIndividual : 1";
+		createOptions << "Number of maps horizontally(x) then vertically(y)\n- nx : 1\n- ny : 1\n\nCrop (if set to false, image will be stretched to fit the total map size)\n- crop : 1\n\nImage offset % along x, then y (With no zoom, only one axis will be affected by the offset, value between 0 and 100)\n- xOffset : 50\n- yOffset : 50\n\nZoom on the image, between 1 (no zoom) and ..............\n- zoom = 1\n\nLimited staircase height\n- maxheight : 2\n\nRainbow support blocks(for a very specific use case, not required)\n- rainbowSupport : 1\n\nBest flat color match for each pixel(just for testing, bad results)\n- noDither : 0\n\nMaximum recursion depth, larger values should slightly increase the accuracy of the result but takes much longer to compute\n- maxCache : 1000\n\nAlso generate 1x1 map sections\n- genIndividual : 1\n\nUse lava/redstone background\n- lavaBg : 0";
 		createOptions.close();
 		return;
 	}
@@ -262,37 +295,41 @@ void readOptionFile(Process* process) {
 	try {
 		while (std::getline(file, line)) {
 			if (line.substr(0, 4) == std::string("- nx")) {
-				process->nx = std::stoi(line.substr(7));
+				nx = std::stoi(line.substr(7));
 			}
 			else if (line.substr(0, 4) == std::string("- ny")) {
-				process->ny = std::stoi(line.substr(7));
+				ny = std::stoi(line.substr(7));
 			}
 			else if (line.substr(0, 6) == std::string("- crop")) {
-				process->crop = (std::stoi(line.substr(9))) ? true : false;
+				crop = (std::stoi(line.substr(9))) ? true : false;
 			}
 			else if (line.substr(0, 9) == std::string("- xOffset")) {
-				process->xOffset = std::stoi(line.substr(12));
+				xOffset = std::stoi(line.substr(12));
 			}
 			else if (line.substr(0, 9) == std::string("- yOffset")) {
-				process->yOffset = std::stoi(line.substr(12));
+				yOffset = std::stoi(line.substr(12));
 			}
 			else if (line.substr(0, 6) == std::string("- zoom")) {
-				process->zoom = std::stoi(line.substr(9));
+				zoom = std::stoi(line.substr(9));
 			}
 			else if (line.substr(0, 11) == std::string("- maxheight")) {
-				process->maxheight = std::stoi(line.substr(14));
+				maxheight = std::stoi(line.substr(14));
 			}
 			else if (line.substr(0, 16) == std::string("- rainbowSupport")) {
-				process->rainbowSupport = (std::stoi(line.substr(19))) ? true : false;
+				rainbowSupport = (std::stoi(line.substr(19))) ? true : false;
 			}
 			else if (line.substr(0, 10) == std::string("- noDither")) {
-				process->noDither = (std::stoi(line.substr(13))) ? true : false;
+				noDither = (std::stoi(line.substr(13))) ? true : false;
 			}
 			else if (line.substr(0, 10) == std::string("- maxCache")) {
-				process->maxCache = std::stoi(line.substr(13));
+				maxCache = std::stoi(line.substr(13));
 			}
 			else if (line.substr(0, 15) == std::string("- genIndividual")) {
-				process->genIndividual = (std::stoi(line.substr(18))) ? true : false;
+				genIndividual = (std::stoi(line.substr(18))) ? true : false;
+			}
+			else if (line.substr(0, 8) == std::string("- lavaBg")) {
+				palette->lavaBg = std::stoi(line.substr(11));
+				minheight = -1;
 			}
 		}
 	}
@@ -305,17 +342,12 @@ void readOptionFile(Process* process) {
 
 
 
-
-
-
 Result::Result() {}
 
 
 Result::Result(bool _success) {
 	success = _success;
 }
-
-
 
 
 
@@ -345,14 +377,17 @@ void Process::decodePng(const char* path) {
 	if (error) std::cout << "Png decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
 }
 
-void Process::encodePng(const char* path) {
+void Process::encodePng(Img* img, const char* path) {
 	std::string completeName = std::string(path) + ".png";
-	unsigned error = lodepng_encode32_file(completeName.c_str(), ditheredImg->pixels, ditheredImg->width, ditheredImg->height);
+	unsigned error = lodepng_encode32_file(completeName.c_str(), img->pixels, img->width, img->height);
 	if (error) std::cout << "Png encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
 }
 
 void Process::preprocess() {
-	readOptionFile(this);
+	readOptionFile();
+
+	palette->initPalette(); // Done after adding potential lava
+
 	preprocessedImg = new Img();
 	preprocessedImg->pixels = (unsigned char*)malloc(nx*128*ny*128*4*sizeof(unsigned char));
 	preprocessedImg->width = 128 * nx;
@@ -386,7 +421,6 @@ void Process::preprocess() {
 
 
 std::unique_ptr<Result> Process::memoCollumnDitherDiffuse(int pos, int end, int lastHeight, int lastBlock, rgb lastErr) {
-	
 	if (pos == end) {
 		return std::make_unique<Result>(true);
 	}
@@ -406,30 +440,43 @@ std::unique_ptr<Result> Process::memoCollumnDitherDiffuse(int pos, int end, int 
 		return std::make_unique<Result>(false);
 	}
 
-	int bestColSame, bestColBelow, bestColAbove;
-	float bestErrSame, bestErrBelow, bestErrAbove;
-	rgb bestDiffSame, bestDiffBelow, bestDiffAbove;
+	int bestColSame, bestColBelow, bestColAbove, bestColToBackground;
+	float bestErrSame, bestErrBelow, bestErrAbove, bestErrToBackground;
+	rgb bestDiffSame, bestDiffBelow, bestDiffAbove, bestDiffToBackground;
+	if (lastHeight == -1) {
+		palette->findBest(&bestColSame, &bestErrSame, &bestDiffSame, &pixel, 3); // Background flat
+	}
+	else if (lastHeight == 0) {
+		palette->findBest(&bestColSame, &bestErrSame, &bestDiffSame, &pixel, 1);
+		if (minheight == -1) {
+			palette->findBest(&bestColToBackground, &bestErrToBackground, &bestDiffToBackground, &pixel, 4);
+		}
+	}
+	else {
+		palette->findBest(&bestColSame, &bestErrSame, &bestDiffSame, &pixel, 1);
+		palette->findBest(&bestColAbove, &bestErrAbove, &bestDiffAbove, &pixel, 2);
+		if (minheight == -1) {
+			palette->findBest(&bestColToBackground, &bestErrToBackground, &bestDiffToBackground, &pixel, 4);
+		}
+	}	
 	palette->findBest(&bestColBelow, &bestErrBelow, &bestDiffBelow, &pixel, 0);
-	palette->findBest(&bestColSame, &bestErrSame, &bestDiffSame, &pixel, 1);
-	palette->findBest(&bestColAbove, &bestErrAbove, &bestDiffAbove, &pixel, 2);
 
 	int bestBlock = 0;
 	int bestHeight = 0;
 	float bestErr = 99999999999;
 	rgb bestDiff;
 	std::unique_ptr<Result> bestCont = std::make_unique<Result>(true);
-
-
-
-	for (int height = 0;height < maxheight; height++) {
+	
+	for (int height = minheight; height < maxheight; height++) {
 		float err = 0;
 		rgb diff;
 		int block = 0;
 
-		if (lastHeight == -1) {
+		if (lastHeight == -2) {
 			err = 0;
 			diff = rgb();
 			block = scaffoldBlock;
+			
 		}
 		else if (height == lastHeight) {
 			err = bestErrSame;
@@ -441,7 +488,19 @@ std::unique_ptr<Result> Process::memoCollumnDitherDiffuse(int pos, int end, int 
 			diff = bestDiffBelow;
 			block = bestColBelow;
 		}
-		else if (height < lastHeight) {
+		else if (minheight == -1 && height < lastHeight) {
+			if (height == -1) {	// Jumping from any height to background
+				err = bestErrToBackground;
+				diff = bestDiffToBackground;
+				block = bestColToBackground;
+			}
+			else {
+				err = bestErrAbove;
+				diff = bestDiffAbove;
+				block = bestColAbove;
+			}
+		}
+		else if (minheight == 0 && height < lastHeight) {
 			err = bestErrAbove;
 			diff = bestDiffAbove;
 			block = bestColAbove;
@@ -500,6 +559,9 @@ bool Process::dither() {
 			ditheredImg->pixels[4 * (row * ditheredImg->width + progress) + 3] = 255;
 		}
 	}
+
+	// Required or no longer ????????????????????????????????????,
+
 
 
 
@@ -570,7 +632,7 @@ bool Process::dither() {
 			}
 			std::unique_ptr<Result> result = std::make_unique<Result>(true);
 
-			int lastHeight = -1;
+			int lastHeight = -2;
 			rgb lastErr;
 
 			std::vector<Tuple> subdivisions;
@@ -669,7 +731,6 @@ void Process::generateImage(std::string fileName) {
 		for (int row = 0; row < (int)ditheredImg->height; row++) {
 			int blocktype = finalBlockMap[column * ((int)ditheredImg->height + 1) + row + 1];
 			int height = finalHeightMap[column * ((int)ditheredImg->height + 1) + row + 1];
-
 			int pixelPos = 4 * (row * ditheredImg->width + column);
 
 			for (int i = 0; i < 3; i++) {	// Compact writing, but slower execution IMPROVE ON THIS BY COPY PASTING LINES OF CODE
@@ -686,13 +747,12 @@ void Process::generateImage(std::string fileName) {
 			lastheight = height;
 		}
 	}
-	// Just preventing the propagation of whatever number that is (idk why it's never replaced.?)
-	//finalBlockMap[((int)ditheredImg->width - 1) * ((int)ditheredImg->height + 1) + (int)ditheredImg->height + 1] = scaffoldBlock;
-	encodePng(fileName.c_str());
+	
+	encodePng(ditheredImg, fileName.c_str());
 }
 
 void Process::generateNBT(std::string fileName) {
-	// Generates a global NBT and then individual 1x1 sections
+	// Generates a global NBT and then individual 1x1 sections if required in config file
 
 	// Compute the total dimensions of the map
 	int lx = nx * 128;
@@ -712,29 +772,30 @@ void Process::generateNBT(std::string fileName) {
 	}
 	// else if() COBBLESTONE ?? -> Add it here
 
-
 	int blocktype, blockHeight, blockIndex, blockIndexBelow;
 
 	for (int column = 0; column < lx; column++) {
 		for (int row = 0; row < lz; row++) {
 
-			blocktype = finalBlockMap[column * ((int)ditheredImg->height + 1) + row];
+			
 			blockHeight = finalHeightMap[column * ((int)ditheredImg->height + 1) + row];
+			if (blockHeight != -1) {	// Add blocks only if it's not the background
+				blocktype = finalBlockMap[column * ((int)ditheredImg->height + 1) + row];
+				blockIndex = column + row * lx + blockHeight * lx * lz;
+				blockIndexBelow = column + row * lx + (blockHeight - 1) * lx * lz;
 
-			blockIndex = column + row * lx + blockHeight * lx * lz;
-			blockIndexBelow = column + row * lx + (blockHeight-1) * lx * lz;
-
-			if (!(std::find(completeSchem->finalPalette.begin(), completeSchem->finalPalette.end(), blocktype) != completeSchem->finalPalette.end())) {	// Generate minimal palette
-				completeSchem->finalPalette.push_back(blocktype);
-			}
-
-			completeSchem->finalMapColors[blockIndex] = (int8_t)blocktype + 1;
-			if (blockHeight > 0) {	// Not on ground, requires support block ADD SCAFFOLD BOOL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-				if (rainbowSupport) {
-					completeSchem->finalMapColors[blockIndexBelow] = (int8_t)(column % 16) + 1;
+				if (!(std::find(completeSchem->finalPalette.begin(), completeSchem->finalPalette.end(), blocktype) != completeSchem->finalPalette.end())) {	// Generate minimal palette
+					completeSchem->finalPalette.push_back(blocktype);
 				}
-				else {
-					completeSchem->finalMapColors[blockIndexBelow] = (int8_t)scaffoldBlock + 1;
+
+				completeSchem->finalMapColors[blockIndex] = (int8_t)blocktype + 1;
+				if (blockHeight > 0) {	// Not on ground, requires support block ADD SCAFFOLD BOOL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+					if (rainbowSupport) {
+						completeSchem->finalMapColors[blockIndexBelow] = (int8_t)(column % 16) + 1;
+					}
+					else {
+						completeSchem->finalMapColors[blockIndexBelow] = (int8_t)scaffoldBlock + 1;
+					}
 				}
 			}
 		}		
@@ -743,7 +804,8 @@ void Process::generateNBT(std::string fileName) {
 	writeMapNBT(&palette->blocks, completeSchem, fileName);	// Write shematic file for the whole map
 	delete(completeSchem);
 
-	if (genIndividual && (nx!=1 || ny != 1)) {	// Write individual 1x1 schematics
+	// Generate individual 1x1 schematics
+	if (genIndividual && (nx!=1 || ny != 1)) {
 		for (int y = 0; y < ny; y++) {
 			for (int x = 0; x < nx; x++) {
 				Schem* individualSchem = new Schem(128, maxheight, 129);		// CAREFUL HERE : possible for less layers to be used despite the possibility for more
@@ -762,23 +824,24 @@ void Process::generateNBT(std::string fileName) {
 				for (int column = 0; column < 128; column++) {
 					for (int row = 0; row < 129; row++) {
 
-						blocktype = finalBlockMap[(column + x * 128) * ((int)ditheredImg->height + 1) + (row + y * 128)];
 						blockHeight = finalHeightMap[(column + x * 128) * ((int)ditheredImg->height + 1) + (row + y * 128)];
+						if (blockHeight != -1) {
+							blocktype = finalBlockMap[(column + x * 128) * ((int)ditheredImg->height + 1) + (row + y * 128)];
+							blockIndex = column + row * 128 + blockHeight * 128 * 129;
+							blockIndexBelow = column + row * 128 + (blockHeight - 1) * 128 * 129;
 
-						blockIndex = column + row * 128 + blockHeight * 128 * 129;
-						blockIndexBelow = column + row * 128 + (blockHeight - 1) * 128 * 129;
-
-						if (!(std::find(individualSchem->finalPalette.begin(), individualSchem->finalPalette.end(), blocktype) != individualSchem->finalPalette.end())) {	// Generate minimal palette
-							individualSchem->finalPalette.push_back(blocktype);
-						}
-
-						individualSchem->finalMapColors[blockIndex] = (int8_t)blocktype + 1;
-						if (blockHeight > 0) {	// Not on ground, requires support block if asked ADD SCAFFOLD BOOL inf CONFIG FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-							if (rainbowSupport) {
-								individualSchem->finalMapColors[blockIndexBelow] = (int8_t)(column % 16) + 1;
+							if (!(std::find(individualSchem->finalPalette.begin(), individualSchem->finalPalette.end(), blocktype) != individualSchem->finalPalette.end())) {	// Generate minimal palette
+								individualSchem->finalPalette.push_back(blocktype);
 							}
-							else {
-								individualSchem->finalMapColors[blockIndexBelow] = (int8_t)scaffoldBlock + 1;
+
+							individualSchem->finalMapColors[blockIndex] = (int8_t)blocktype + 1;
+							if (blockHeight > 0) {	// Not on ground, requires support block if asked ADD SCAFFOLD BOOL inf CONFIG FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+								if (rainbowSupport) {
+									individualSchem->finalMapColors[blockIndexBelow] = (int8_t)(column % 16) + 1;
+								}
+								else {
+									individualSchem->finalMapColors[blockIndexBelow] = (int8_t)scaffoldBlock + 1;
+								}
 							}
 						}
 					}
@@ -790,4 +853,71 @@ void Process::generateNBT(std::string fileName) {
 			}
 		}
 	}
+}
+
+void Process::generateLegend(std::string fileName) {
+	if (nx == 1 && ny == 1 ||(!genIndividual)) {
+		return;
+	}
+
+	if (nx > 9 || ny > 9) {
+		std::cout << "Map is too large for legend.\n";		// Support for larger maps to be added
+		return;
+	}
+
+	legendImg = new Img(*preprocessedImg);
+
+	// Add coordinates
+	for (int x = 0; x < nx; x++) {
+		for (int y = 0; y < ny; y++) {
+			for (int row = 0; row < Digits::height; row++) {
+				for (int col = 0; col < Digits::width; col++) {
+					// First digit
+					if (Digits::representation[y+1][col + row * Digits::width] == '1') {
+						legendImg->pixels[4 * (x * 128 + col + (row + y*128) * legendImg->width)] = 0;
+						legendImg->pixels[4 * (x * 128 + col + (row + y * 128) * legendImg->width) + 1] = 255;
+						legendImg->pixels[4 * (x * 128 + col + (row + y * 128) * legendImg->width) + 2] = 0;
+						legendImg->pixels[4 * (x * 128 + col + (row + y * 128) * legendImg->width) + 3] = 255;
+					}
+
+					// Comma
+					if (Digits::representation[0][col + Digits::width + row * Digits::width] == '1') {
+						legendImg->pixels[4 * (x * 128 + col + Digits::width + (row + y * 128) * legendImg->width)] = 0;
+						legendImg->pixels[4 * (x * 128 + col + Digits::width + (row + y * 128) * legendImg->width) + 1] = 255;
+						legendImg->pixels[4 * (x * 128 + col + Digits::width + (row + y * 128) * legendImg->width) + 2] = 0;
+						legendImg->pixels[4 * (x * 128 + col + Digits::width + (row + y * 128) * legendImg->width) + 3] = 255;
+					}
+
+					// Second digit
+					if (Digits::representation[x+1][col + 2*Digits::width + row * Digits::width] == '1') {
+						legendImg->pixels[4 * (x * 128 + col + 2 * Digits::width + (row + y * 128) * legendImg->width)] = 0;
+						legendImg->pixels[4 * (x * 128 + col + 2 * Digits::width + (row + y * 128) * legendImg->width) + 1] = 255;
+						legendImg->pixels[4 * (x * 128 + col + 2 * Digits::width + (row + y * 128) * legendImg->width) + 2] = 0;
+						legendImg->pixels[4 * (x * 128 + col + 2 * Digits::width + (row + y * 128) * legendImg->width) + 3] = 255;
+					}
+				}
+			}
+		}
+	}
+
+	// Add lines
+	for (int row = 0; row < legendImg->height; row++) {
+		for (int col = 0; col < legendImg->width; col++) {
+			if (row % 128 == 0 && row != 0) {
+				legendImg->pixels[4 * (col + row * legendImg->width)] = 0;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 1] = 255;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 2] = 0;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 3] = 255;
+			}
+			if (col % 128 == 0 && col != 0) {
+				legendImg->pixels[4 * (col + row * legendImg->width)] = 0;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 1] = 255;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 2] = 0;
+				legendImg->pixels[4 * (col + row * legendImg->width) + 3] = 255;
+			}
+		}
+	}
+
+	std::string completeName = fileName + "_Legend";
+	encodePng(legendImg, completeName.c_str());
 }
